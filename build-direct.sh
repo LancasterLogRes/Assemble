@@ -8,6 +8,8 @@ fixture=$HOME/.fixture
 chrome=../Lightshow-Release/built/DirectChrome
 build=1
 projects="Lightbox-Release Lightshow-Release"
+address=192.168.1.2
+key=$HOME/.ssh/id_dsa.pub
 
 function usage
 {
@@ -20,13 +22,16 @@ function usage
 	echo "  -p string Partition separator for device. Default: p"
 	echo "  -f file   Spefify fixture file. Default: $HOME/.fixture"
 	echo "  -c file   Specify Chrome. Default: ../Lightshow-Release/built/DirectChrome"
-	echo "  -b        Build projects beforehand."
-	echo "  -n        Don't build projects beforehand. Default."
+	echo "  -b        Build projects beforehand. Default."
+	echo "  -n        Don't build projects beforehand."
 	echo "  -p        Project list to build. Default 'Lightbox-Release Lightshow-Release'"
+	echo "  -a ip     The static internet address. Default 192.168.1.2"
+	echo "  -A        Specify that a DHCP address should be taken."
+	echo "  -k file   Authorize key to login as root. Default: $HOME/.ssh/id_dsa.pub"
 	echo "  -h        Print this message."
 }
 
-while getopts "r:l:d:f:c:p:bnh" opt; do
+while getopts "r:l:d:f:c:a:Ap:bnk:h" opt; do
 	case $opt in
 	r)
 		rootmb=$OPTARG;;
@@ -40,12 +45,18 @@ while getopts "r:l:d:f:c:p:bnh" opt; do
 		fixture=$OPTARG;;
 	c)
 		chrome=$OPTARG;;
+	a)
+		address=$OPTARG;;
 	p)
 		projects="$OPTARG";;
 	b)
 		build=1;;
 	n)
 		build=0;;
+	k)
+		key=$OPTARG;;
+	A)
+		address=;;
 	h)
 		usage
 		exit 0;;
@@ -78,27 +89,26 @@ for i in 1 2 3 4; do
 	sudo umount $device$separator$i 2>/dev/null
 done
 
-echo "Building projects..."
-OWD="$PWD"
-for p in $projects; do
-	cd "../$p"
-	if [ ! make -j4 2>/tmp/make-out ]; then
-		cat /tmp/make-out
-		echo "Error building. Stop."
-		exit 1
-	fi
-	cd "$OWD"
-done
+if [ $build == 1 ]; then
+	echo "Building projects..."
+	OWD="$PWD"
+	for p in $projects; do
+		cd "../$p"
+		if [ ! make -j4 2>/tmp/make-out ]; then
+			cat /tmp/make-out
+			echo "Error building. Stop."
+			exit 1
+		fi
+		cd "$OWD"
+	done
+fi
 
+echo "Partitioning..."
 sudo parted -s -a none ${device} unit s mklabel msdos \
 	mkpart primary fat32 $((startboot)) $((startroot-1)) \
 	mkpart primary ext4 $((startroot)) $((startlightbox-1)) \
 	mkpart primary ext4 $((startlightbox)) $((startvar-1)) \
 	mkpart primary ext4 $((startvar)) $((datasectors-1))
-#	name 1 boot \
-#	name 2 root \
-#	name 3 lightbox \
-#	name 4 var
 
 echo "Formatting and populating boot..."
 sudo mkfs.vfat -n boot ${device}${separator}1
@@ -110,9 +120,33 @@ echo "Formatting and populating root..."
 sudo mkfs.ext4 -q -L root ${device}${separator}2
 sudo mount ${device}${separator}2 /mnt
 sudo tar xJf $roottarxz -C /mnt
+sudo cp data/fstab data/rc.local /mnt/etc
+sudo cp $key /mnt/root/.ssh/authorized_keys
+
+echo "Randomizing host keys..."
 sudo dropbearkey -t rsa -f /mnt/etc/dropbear/dropbear_rsa_host_key
 sudo dropbearkey -t dss -f /mnt/etc/dropbear/dropbear_dss_host_key
-sudo cp data/fstab data/rc.local /mnt/etc
+
+echo "Configuring network..."
+cp data/interfaces /tmp
+if [ "x$address" == "x" ]; then
+	echo "iface eth0 inet dhcp" >> /tmp/interfaces
+else
+	echo "iface eth0 inet static" >> /tmp/interfaces
+	echo "   address $address" >> /tmp/interfaces
+	echo "   netmask 255.255.255.0" >> /tmp/interfaces
+	echo "   broadcast" $(echo $address | sed s/.[0-9]*$/.255/) >> /tmp/interfaces
+	ssh-keygen -f "$HOME/.ssh/known_hosts" -R $address
+fi
+sudo cp /tmp/interfaces /mnt/etc/network
+rm -f /tmp/interfaces
+
+echo "Randomizing root password..."
+pass=$(md5pass $(md5pass))
+sudo cat /mnt/etc/shadow | sed "s/root::/root:$pass:/" > /tmp/shadow
+sudo cp /tmp/shadow /mnt/etc/shadow
+sudo rm /tmp/shadow
+
 sudo umount /mnt
 
 echo "Formatting and populating lightbox..."
