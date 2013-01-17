@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# A bit crusty - just use build-direct instead.
+
 rootmb=128
 lightboxmb=64
 
@@ -41,6 +43,8 @@ dd if=/dev/zero of=/tmp/image.part bs=$sectorsize count=$((startlightbox-startro
 mkfs.ext4 -L root -F /tmp/image.part
 sudo mount /tmp/image.part /mnt
 sudo tar x -C /mnt -f $roottar
+sudo dropbearkey -t rsa -f /mnt/etc/dropbear/dropbear_rsa_host_key
+sudo dropbearkey -t dss -f /mnt/etc/dropbear/dropbear_dss_host_key
 sudo umount /mnt
 dd if=/tmp/image.part of=/tmp/image seek=$startroot obs=$sectorsize bs=$sectorsize
 rm -f /rmp/image.part
