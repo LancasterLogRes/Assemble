@@ -6,6 +6,8 @@ device=/dev/mmcblk0
 separator=p
 fixture=$HOME/.fixture
 chrome=../Lightshow-Release/built/DirectChrome
+build=1
+projects="Lightbox-Release Lightshow-Release"
 
 function usage
 {
@@ -18,10 +20,13 @@ function usage
 	echo "  -p string Partition separator for device. Default: p"
 	echo "  -f file   Spefify fixture file. Default: $HOME/.fixture"
 	echo "  -c file   Specify Chrome. Default: ../Lightshow-Release/built/DirectChrome"
+	echo "  -b        Build projects beforehand."
+	echo "  -n        Don't build projects beforehand. Default."
+	echo "  -p        Project list to build. Default 'Lightbox-Release Lightshow-Release'"
 	echo "  -h        Print this message."
 }
 
-while getopts "r:l:d:f:c:h" opt; do
+while getopts "r:l:d:f:c:p:bnh" opt; do
 	case $opt in
 	r)
 		rootmb=$OPTARG;;
@@ -35,6 +40,12 @@ while getopts "r:l:d:f:c:h" opt; do
 		fixture=$OPTARG;;
 	c)
 		chrome=$OPTARG;;
+	p)
+		projects="$OPTARG";;
+	b)
+		build=1;;
+	n)
+		build=0;;
 	h)
 		usage
 		exit 0;;
@@ -65,6 +76,18 @@ startvar=$((startlightbox+lightboxmb*1024*1024/sectorsize))
 
 for i in 1 2 3 4; do
 	sudo umount $device$separator$i 2>/dev/null
+done
+
+echo "Building projects..."
+OWD="$PWD"
+for p in $projects; do
+	cd "../$p"
+	if [ ! make -j4 2>/tmp/make-out ]; then
+		cat /tmp/make-out
+		echo "Error building. Stop."
+		exit 1
+	fi
+	cd "$OWD"
 done
 
 sudo parted -s -a none ${device} unit s mklabel msdos \
