@@ -22,7 +22,7 @@ while getopts "rldfc" opt; do
 	c)
 		chrome=$OPTARG;;
 	\?)
-		echo "Invalid option: -$OPTARG" >&2;;
+		echo "Invalid option: -$OPTARG" >&2
 		echo "Usage: ./build-direct.sh [OPTION]"
 		echo "Options:"
 		echo "  -r size   Make root partition <size> MB big. Default: 128"
@@ -30,7 +30,7 @@ while getopts "rldfc" opt; do
 		echo "  -d device Write to block device <device>. Default: /dev/mmcblk0"
 		echo "  -p string Partition separator for device. Default: p"
 		echo "  -f file   Spefify fixture file. Default: $HOME/.fixture"
-		echo "  -c file   Specify Chrome. Default: ../Lightshow-Release/built/DirectChrome"
+		echo "  -c file   Specify Chrome. Default: ../Lightshow-Release/built/DirectChrome";;
 	:)
 		echo "Option -$OPTARG requires an argument." >&2
 		exit 1;;
@@ -51,7 +51,9 @@ startroot=160650
 startlightbox=$((startroot+rootmb*1024*1024/sectorsize))
 startvar=$((startlightbox+lightboxmb*1024*1024/sectorsize))
 
-sudo apt-get install -f -y dropbear parted dosfstools e2fsprogs
+for i in 1 2 3 4; do
+	sudo umount $device$separator$i
+done
 
 sudo parted -s -a none ${device} unit s mklabel msdos \
 	mkpart primary fat32 $((startboot)) $((startroot-1)) \
@@ -75,6 +77,7 @@ sudo mount ${device}${separator}2 /mnt
 sudo tar xJf $roottarxz -C /mnt
 sudo dropbearkey -t rsa -f /mnt/etc/dropbear/dropbear_rsa_host_key
 sudo dropbearkey -t dss -f /mnt/etc/dropbear/dropbear_dss_host_key
+sudo cp data/fstab data/rc.local /mnt/etc
 sudo umount /mnt
 
 echo "Formatting and populating lightbox..."
@@ -90,4 +93,5 @@ sudo mount ${device}${separator}4 /mnt
 sudo tar xJf $vartarxz -C /mnt
 sudo umount /mnt
 
+sync
 echo "All done."
