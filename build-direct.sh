@@ -7,7 +7,21 @@ separator=p
 fixture=$HOME/.fixture
 chrome=../Lightshow-Release/built/DirectChrome
 
-while getopts "rldfc" opt; do
+function usage
+{
+	echo "Usage: ./build-direct.sh [OPTION]"
+	echo "Build the Pi's SD card. Copyright 2013, by Gavin Wood."
+	echo "Options:"
+	echo "  -r size   Make root partition <size> MB big. Default: 128"
+	echo "  -l size   Make lightbox partition <size> MB big. Default: 64"
+	echo "  -d device Write to block device <device>. Default: /dev/mmcblk0"
+	echo "  -p string Partition separator for device. Default: p"
+	echo "  -f file   Spefify fixture file. Default: $HOME/.fixture"
+	echo "  -c file   Specify Chrome. Default: ../Lightshow-Release/built/DirectChrome"
+	echo "  -h        Print this message."
+}
+
+while getopts "r:l:d:f:c:h" opt; do
 	case $opt in
 	r)
 		rootmb=$OPTARG;;
@@ -21,18 +35,16 @@ while getopts "rldfc" opt; do
 		fixture=$OPTARG;;
 	c)
 		chrome=$OPTARG;;
+	h)
+		usage
+		exit 0;;
 	\?)
 		echo "Invalid option: -$OPTARG" >&2
-		echo "Usage: ./build-direct.sh [OPTION]"
-		echo "Options:"
-		echo "  -r size   Make root partition <size> MB big. Default: 128"
-		echo "  -l size   Make lightbox partition <size> MB big. Default: 64"
-		echo "  -d device Write to block device <device>. Default: /dev/mmcblk0"
-		echo "  -p string Partition separator for device. Default: p"
-		echo "  -f file   Spefify fixture file. Default: $HOME/.fixture"
-		echo "  -c file   Specify Chrome. Default: ../Lightshow-Release/built/DirectChrome";;
+		usage
+		exit 1;;
 	:)
 		echo "Option -$OPTARG requires an argument." >&2
+		usage
 		exit 1;;
 	esac
 done
@@ -52,7 +64,7 @@ startlightbox=$((startroot+rootmb*1024*1024/sectorsize))
 startvar=$((startlightbox+lightboxmb*1024*1024/sectorsize))
 
 for i in 1 2 3 4; do
-	sudo umount $device$separator$i
+	sudo umount $device$separator$i 2>/dev/null
 done
 
 sudo parted -s -a none ${device} unit s mklabel msdos \
