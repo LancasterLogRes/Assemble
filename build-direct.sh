@@ -144,7 +144,7 @@ rm -f /tmp/interfaces
 echo "Randomizing root password..."
 pass=$(md5pass $(md5pass))
 echo "    (password hash is $pass)"
-sudo cat /mnt/etc/shadow | sed "s/root::/root:$pass:/" > /tmp/shadow
+sudo cat /mnt/etc/shadow | sed "s|root::|root:$pass:|" > /tmp/shadow
 sudo cp /tmp/shadow /mnt/etc/shadow
 sudo rm /tmp/shadow
 
