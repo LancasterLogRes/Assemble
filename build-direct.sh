@@ -31,7 +31,7 @@ function usage
 	echo "  -h        Print this message."
 }
 
-while getopts "r:l:d:f:c:a:Ap:bnk:h" opt; do
+while getopts "r:l:d:f:c:a:Ap:bnk:hs:" opt; do
 	case $opt in
 	r)
 		rootmb=$OPTARG;;
@@ -39,7 +39,7 @@ while getopts "r:l:d:f:c:a:Ap:bnk:h" opt; do
 		lightboxmb=$OPTARG;;
 	d)
 		device=$OPTARG;;
-	p)
+	s)
 		separator=$OPTARG;;
 	f)
 		fixture=$OPTARG;;
