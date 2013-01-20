@@ -8,7 +8,7 @@ fixture=$HOME/.fixture
 chrome=../Lightshow-Release/built/DirectChrome
 build=1
 projects="Lightbox-Release Lightshow-Release"
-address=192.168.1.2
+address=192.168.69.2
 key=$HOME/.ssh/id_dsa.pub
 
 function usage
@@ -16,18 +16,18 @@ function usage
 	echo "Usage: ./build-direct.sh [OPTION]"
 	echo "Build the Pi's SD card. Copyright 2013, by Gavin Wood."
 	echo "Options:"
-	echo "  -r size   Make root partition <size> MB big. Default: 128"
-	echo "  -l size   Make lightbox partition <size> MB big. Default: 64"
-	echo "  -d device Write to block device <device>. Default: /dev/mmcblk0"
-	echo "  -p string Partition separator for device. Default: p"
-	echo "  -f file   Spefify fixture file. Default: $HOME/.fixture"
-	echo "  -c file   Specify Chrome. Default: ../Lightshow-Release/built/DirectChrome"
+	echo "  -r size   Make root partition <size> MB big. Default: $rootmb"
+	echo "  -l size   Make lightbox partition <size> MB big. Default: $lightboxmb"
+	echo "  -d device Write to block device <device>. Default: $device"
+	echo "  -s string Partition separator for device. Default: $separator"
+	echo "  -f file   Spefify fixture file. Default: $fixture"
+	echo "  -c file   Specify Chrome. Default: $chrome"
 	echo "  -b        Build projects beforehand. Default."
 	echo "  -n        Don't build projects beforehand."
-	echo "  -p        Project list to build. Default 'Lightbox-Release Lightshow-Release'"
-	echo "  -a ip     The static internet address. Default 192.168.1.2"
+	echo "  -p        Project list to build. Default '$projects'"
+	echo "  -a ip     The static internet address. Default $address"
 	echo "  -A        Specify that a DHCP address should be taken."
-	echo "  -k file   Authorize key to login as root. Default: $HOME/.ssh/id_dsa.pub"
+	echo "  -k file   Authorize key to login as root. Default: $key"
 	echo "  -h        Print this message."
 }
 
@@ -143,6 +143,7 @@ rm -f /tmp/interfaces
 
 echo "Randomizing root password..."
 pass=$(md5pass $(md5pass))
+echo "    (password hash is $pass)"
 sudo cat /mnt/etc/shadow | sed "s/root::/root:$pass:/" > /tmp/shadow
 sudo cp /tmp/shadow /mnt/etc/shadow
 sudo rm /tmp/shadow
