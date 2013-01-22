@@ -211,6 +211,7 @@ sudo dropbearkey -t rsa -f /mnt/etc/dropbear/dropbear_rsa_host_key >/dev/null
 sudo dropbearkey -t dss -f /mnt/etc/dropbear/dropbear_dss_host_key >/dev/null
 
 echo "Configuring network..."
+sudo rm -f /mnt/etc/udev/rules.d/70-persistent-net.rules
 sudo rm -f /tmp/interfaces
 cp data/interfaces /tmp
 if [ "x$address" == "x" ]; then
