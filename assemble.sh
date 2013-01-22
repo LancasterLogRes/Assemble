@@ -3,24 +3,28 @@
 rootmb=128
 lightboxmb=64
 device=/dev/mmcblk0
-separator=p
+separator=AUTOMATIC
 fixture=$HOME/.fixture
 chrome=../Lightshow-Release/built/DirectChrome
 build=1
 projects="Lightbox-Release Lightshow-Release"
 address=192.168.69.2
 key=$HOME/.ssh/id_dsa.pub
+imagesizekb=992000
+image=
 
 function usage
 {
-	echo "Usage: ./build-direct.sh [OPTION]"
+	echo "Usage: ./assemble.sh [OPTION]"
 	echo "Build the Pi's SD card. Copyright Lancaster Logic Response 2013, by Gavin Wood."
 	echo "Options:"
 	echo "  -r size   Make root partition <size> MB big. Default: $rootmb"
 	echo "  -l size   Make lightbox partition <size> MB big. Default: $lightboxmb"
 	echo "  -d device Write to block device <device>. Default: $device"
-	echo "  -s string Partition separator for device. Default: $separator"
-	echo "  -f file   Spefify fixture file. Default: $fixture"
+	echo "  -i file   Create image in <file>. Overrides and disables -d."
+	echo "  -z size   Make image <size> KB big. Default: 992000"
+	echo "  -s string Partition separator for device. Default: (auto-detect)"
+	echo "  -f file   Specify fixture file. Default: $fixture"
 	echo "  -c file   Specify Chrome. Default: $chrome"
 	echo "  -b        Build projects beforehand. Default."
 	echo "  -n        Don't build projects beforehand."
@@ -31,7 +35,7 @@ function usage
 	echo "  -h        Print this message."
 }
 
-while getopts "r:l:d:f:c:a:Ap:bnk:hs:" opt; do
+while getopts "r:l:d:f:c:a:Ap:bnk:hs:i:z:" opt; do
 	case $opt in
 	r)
 		rootmb=$OPTARG;;
@@ -39,6 +43,10 @@ while getopts "r:l:d:f:c:a:Ap:bnk:hs:" opt; do
 		lightboxmb=$OPTARG;;
 	d)
 		device=$OPTARG;;
+	i)
+		image="$OPTARG";;
+	z)
+		imagesizekb=$OPTARG;;
 	s)
 		separator=$OPTARG;;
 	f)
@@ -71,23 +79,30 @@ while getopts "r:l:d:f:c:a:Ap:bnk:hs:" opt; do
 	esac
 done
 
+if [ "x$separator" == "xAUTOMATIC" ]; then
+	if [ "x${device/*mmcblk*/}" == "x" ]; then
+		separator=p
+	elif [ "x${device/*sda*/}" == "x" ]; then
+		separator=""
+	elif	[ "x${device/*hda*/}" == "x" ]; then
+		separator=""
+	else
+		echo "Unknown device partition separator - please specify with -s option."
+		exit 1
+	fi
+fi
+
 boottarxz=data/boot.tar.xz
 roottarxz=data/root.tar.xz
 vartarxz=data/var.tar.xz
 
 sectorsize=512
-sectors=$(sudo blockdev --getsz $device)
-datasectors=$((sectors))
 
 startboot=63
 startroot=160650
 
 startlightbox=$((startroot+rootmb*1024*1024/sectorsize))
 startvar=$((startlightbox+lightboxmb*1024*1024/sectorsize))
-
-for i in 1 2 3 4; do
-	sudo umount $device$separator$i 2>/dev/null
-done
 
 if [ $build == 1 ]; then
 	echo "Building projects..."
@@ -103,22 +118,64 @@ if [ $build == 1 ]; then
 	done
 fi
 
+if [ "x$image" != "x" ]; then
+	sectors=$((imagesizekb * 1024 / sectorsize))
+	datasectors=$((sectors))
+	disk=${image}
+
+	echo "Zeroing..."
+	dd if=/dev/zero of=$image bs=$sectorsize count=$sectors
+else
+	disk=${device}
+	sectors=$(sudo blockdev --getsz $device)
+	datasectors=$((sectors))
+
+	echo "Unmounting..."
+	for i in 1 2 3 4; do
+		sudo umount $device$separator$i 2>/dev/null
+	done
+fi
+
+
+
 echo "Partitioning..."
-sudo parted -s -a none ${device} unit s mklabel msdos \
+sudo parted -s -a none ${disk} unit s mklabel msdos \
 	mkpart primary fat32 $((startboot)) $((startroot-1)) \
 	mkpart primary ext4 $((startroot)) $((startlightbox-1)) \
 	mkpart primary ext4 $((startlightbox)) $((startvar-1)) \
 	mkpart primary ext4 $((startvar)) $((datasectors-1))
 
+
+
+
 echo "Formatting and populating boot..."
-sudo mkfs.vfat -n boot ${device}${separator}1
-sudo mount ${device}${separator}1 /mnt
+if [ "x$image" != "x" ]; then
+	dd if=/dev/zero of=/tmp/image.part bs=$sectorsize count=$((startroot-startboot))
+	mkfs.vfat -n boot /tmp/image.part
+	sudo mount /tmp/image.part /mnt
+else
+	sudo mkfs.vfat -n boot ${device}${separator}1
+	sudo mount ${device}${separator}1 /mnt
+fi
 sudo tar xJf $boottarxz -C /mnt 2> /dev/null
 sudo umount /mnt
+if [ "x$image" != "x" ]; then
+	dd if=/tmp/image.part of=$image seek=$startboot obs=$sectorsize bs=$sectorsize
+	rm -f /tmp/image.part
+fi
+
+
 
 echo "Formatting and populating root..."
-sudo mkfs.ext4 -q -L root ${device}${separator}2
-sudo mount ${device}${separator}2 /mnt
+if [ "x$image" != "x" ]; then
+	dd if=/dev/zero of=/tmp/image.part bs=$sectorsize count=$((startlightbox-startroot))
+	mkfs.ext4 -L root -F /tmp/image.part
+	sudo mount /tmp/image.part /mnt
+else
+	sudo mkfs.ext4 -q -L root ${device}${separator}2
+	sudo mount ${device}${separator}2 /mnt
+fi
+
 sudo tar xJf $roottarxz -C /mnt
 sudo cp data/fstab data/rc.local /mnt/etc
 sudo cp $key /mnt/root/.ssh/authorized_keys
@@ -139,9 +196,7 @@ else
 	ssh-keygen -f "$HOME/.ssh/known_hosts" -R $address
 fi
 sudo cp /tmp/interfaces /mnt/etc/network
-exit
-
-#rm -f /tmp/interfaces
+rm -f /tmp/interfaces
 
 echo "Randomizing root password..."
 pass=$(md5pass $(md5pass))
@@ -151,19 +206,49 @@ sudo cp /tmp/shadow /mnt/etc/shadow
 sudo rm /tmp/shadow
 
 sudo umount /mnt
+if [ "x$image" != "x" ]; then
+	dd if=/tmp/image.part of=$image seek=$startroot obs=$sectorsize bs=$sectorsize
+	rm -f /tmp/image.part
+fi
+
+
 
 echo "Formatting and populating lightbox..."
-sudo mkfs.ext4 -q -L lightbox ${device}${separator}3
-sudo mount ${device}${separator}3 /mnt
+if [ "x$image" != "x" ]; then
+	dd if=/dev/zero of=/tmp/image.part bs=$sectorsize count=$((startvar-startlightbox))
+	mkfs.ext4 -L lightbox -F /tmp/image.part
+	sudo mount /tmp/image.part /mnt
+else
+	sudo mkfs.ext4 -q -L lightbox ${device}${separator}3
+	sudo mount ${device}${separator}3 /mnt
+fi
 sudo cp $fixture /mnt/fixture
 sudo cp $chrome /mnt/Chrome
 sudo umount /mnt
+if [ "x$image" != "x" ]; then
+	dd if=/tmp/image.part of=$image seek=$startlightbox obs=$sectorsize bs=$sectorsize
+	rm -f /tmp/image.part
+fi
+
+
 
 echo "Formatting and populating var..."
-sudo mkfs.ext4 -q -L var ${device}${separator}4
-sudo mount ${device}${separator}4 /mnt
+if [ "x$image" != "x" ]; then
+	dd if=/dev/zero of=/tmp/image.part bs=$sectorsize count=$((datasectors-startvar))
+	mkfs.ext4 -L var -F /tmp/image.part
+	sudo mount /tmp/image.part /mnt
+else
+	sudo mkfs.ext4 -q -L var ${device}${separator}4
+	sudo mount ${device}${separator}4 /mnt
+fi
 sudo tar xJf $vartarxz -C /mnt
 sudo umount /mnt
+if [ "x$image" != "x" ]; then
+	dd if=/tmp/image.part of=$image seek=$startvar obs=$sectorsize bs=$sectorsize
+	rm -f /tmp/image.part
+fi
+
+
 
 sync
 echo "All done."
