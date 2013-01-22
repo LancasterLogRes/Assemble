@@ -184,7 +184,7 @@ fi
 echo "Formatting root..."
 if [ "x$image" != "x" ]; then
 	dd if=/dev/zero of=/tmp/image.part bs=$sectorsize count=$((startlightbox-startroot))
-	mkfs.ext4 -L root -F /tmp/image.part
+	mkfs.ext4 -q -L root -F /tmp/image.part
 	sudo mount /tmp/image.part /mnt
 else
 	sudo mkfs.ext4 -q -L root ${device}${separator}2
@@ -193,23 +193,20 @@ fi
 
 echo "Populating root..."
 sudo tar xJf $roottarxz -C /mnt
-if [ $userlogin == 1 ]; then
-	sudo rm -f /mnt/etc/rc.local
-else
+if [ $userlogin != 1 ]; then
 	sudo cp -f data/rc.local /mnt/etc
 fi
 if [ $writable == 1 ]; then
 	sudo rm -f /tmp/fstab
 	sed 's/ro 0 0/rw 0 0/' <data/fstab >/tmp/fstab
-	sudo cp -f /tmp/fstab /mnt/etc
+	sudo cp /tmp/fstab /mnt/etc
 	sudo rm -f /tmp/fstab
 else
-	sudo cp -f data/fstab /mnt/etc
+	sudo cp data/fstab /mnt/etc
 fi
 sudo cp $key /mnt/root/.ssh/authorized_keys
 
 echo "Randomizing host keys..."
-sudo rm -f /mnt/etc/dropbear/dropbear_rsa_host_key /mnt/etc/dropbear/dropbear_dss_host_key
 sudo dropbearkey -t rsa -f /mnt/etc/dropbear/dropbear_rsa_host_key >/dev/null
 sudo dropbearkey -t dss -f /mnt/etc/dropbear/dropbear_dss_host_key >/dev/null
 
@@ -225,7 +222,7 @@ else
 	echo "   broadcast" $(echo $address | sed s/.[0-9]*$/.255/) >> /tmp/interfaces
 	ssh-keygen -f "$HOME/.ssh/known_hosts" -R $address
 fi
-sudo cp -f /tmp/interfaces /mnt/etc/network
+sudo cp /tmp/interfaces /mnt/etc/network
 rm -f /tmp/interfaces
 
 if [ $secure == 1 ]; then
@@ -248,7 +245,7 @@ fi
 echo "Formatting lightbox..."
 if [ "x$image" != "x" ]; then
 	dd if=/dev/zero of=/tmp/image.part bs=$sectorsize count=$((startvar-startlightbox))
-	mkfs.ext4 -L lightbox -F /tmp/image.part
+	mkfs.ext4 -q -L lightbox -F /tmp/image.part
 	sudo mount /tmp/image.part /mnt
 else
 	sudo mkfs.ext4 -q -L lightbox ${device}${separator}3
@@ -268,7 +265,7 @@ fi
 echo "Formatting var..."
 if [ "x$image" != "x" ]; then
 	dd if=/dev/zero of=/tmp/image.part bs=$sectorsize count=$((datasectors-startvar))
-	mkfs.ext4 -L var -F /tmp/image.part
+	mkfs.ext4 -q -L var -F /tmp/image.part
 	sudo mount /tmp/image.part /mnt
 else
 	sudo mkfs.ext4 -q -L var ${device}${separator}4
