@@ -139,6 +139,8 @@ else
 	ssh-keygen -f "$HOME/.ssh/known_hosts" -R $address
 fi
 sudo cp /tmp/interfaces /mnt/etc/network
+exit
+
 #rm -f /tmp/interfaces
 
 echo "Randomizing root password..."
