@@ -14,7 +14,7 @@ key=$HOME/.ssh/id_dsa.pub
 function usage
 {
 	echo "Usage: ./build-direct.sh [OPTION]"
-	echo "Build the Pi's SD card. Copyright 2013, by Gavin Wood."
+	echo "Build the Pi's SD card. Copyright Lancaster Logic Response 2013, by Gavin Wood."
 	echo "Options:"
 	echo "  -r size   Make root partition <size> MB big. Default: $rootmb"
 	echo "  -l size   Make lightbox partition <size> MB big. Default: $lightboxmb"
@@ -139,7 +139,7 @@ else
 	ssh-keygen -f "$HOME/.ssh/known_hosts" -R $address
 fi
 sudo cp /tmp/interfaces /mnt/etc/network
-rm -f /tmp/interfaces
+#rm -f /tmp/interfaces
 
 echo "Randomizing root password..."
 pass=$(md5pass $(md5pass))
