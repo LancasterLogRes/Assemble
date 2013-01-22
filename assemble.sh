@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rootmb=128
+rootmb=256
 lightboxmb=64
 device=/dev/mmcblk0
 separator=AUTOMATIC
@@ -12,6 +12,9 @@ address=192.168.69.2
 key=$HOME/.ssh/id_dsa.pub
 imagesizekb=992000
 image=
+secure=1
+writable=0
+userlogin=0
 
 function usage
 {
@@ -26,16 +29,19 @@ function usage
 	echo "  -s string Partition separator for device. Default: (auto-detect)"
 	echo "  -f file   Specify fixture file. Default: $fixture"
 	echo "  -c file   Specify Chrome. Default: $chrome"
-	echo "  -b        Build projects beforehand. Default."
-	echo "  -n        Don't build projects beforehand."
+	echo "  -B        Don't build projects beforehand."
 	echo "  -p        Project list to build. Default '$projects'"
 	echo "  -a ip     The static internet address. Default $address"
 	echo "  -A        Specify that a DHCP address should be taken."
 	echo "  -k file   Authorize key to login as root. Default: $key"
+	echo "  -n        No root password. This is insecure!"
+	echo "  -w        Mount partitions read/write."
+	echo "  -u        Start a user login session, not Chrome." 
+	echo "  -o        Open: same as -n -w -u. This is insecure!"
 	echo "  -h        Print this message."
 }
 
-while getopts "r:l:d:f:c:a:Ap:bnk:hs:i:z:" opt; do
+while getopts "r:l:d:f:c:a:Ap:Bk:hs:i:z:nowu" opt; do
 	case $opt in
 	r)
 		rootmb=$OPTARG;;
@@ -57,14 +63,22 @@ while getopts "r:l:d:f:c:a:Ap:bnk:hs:i:z:" opt; do
 		address=$OPTARG;;
 	p)
 		projects="$OPTARG";;
-	b)
-		build=1;;
-	n)
+	B)
 		build=0;;
 	k)
 		key=$OPTARG;;
 	A)
 		address=;;
+	n)
+		secure=0;;
+	w)
+		writable=1;;
+	u)
+		userlogin=1;;
+	o)
+		secure=0
+		writable=1
+		userlogin=1;;
 	h)
 		usage
 		exit 0;;
@@ -148,7 +162,7 @@ sudo parted -s -a none ${disk} unit s mklabel msdos \
 
 
 
-echo "Formatting and populating boot..."
+echo "Formatting boot..."
 if [ "x$image" != "x" ]; then
 	dd if=/dev/zero of=/tmp/image.part bs=$sectorsize count=$((startroot-startboot))
 	mkfs.vfat -n boot /tmp/image.part
@@ -157,6 +171,7 @@ else
 	sudo mkfs.vfat -n boot ${device}${separator}1
 	sudo mount ${device}${separator}1 /mnt
 fi
+echo "Populating boot..."
 sudo tar xJf $boottarxz -C /mnt 2> /dev/null
 sudo umount /mnt
 if [ "x$image" != "x" ]; then
@@ -166,7 +181,7 @@ fi
 
 
 
-echo "Formatting and populating root..."
+echo "Formatting root..."
 if [ "x$image" != "x" ]; then
 	dd if=/dev/zero of=/tmp/image.part bs=$sectorsize count=$((startlightbox-startroot))
 	mkfs.ext4 -L root -F /tmp/image.part
@@ -176,15 +191,30 @@ else
 	sudo mount ${device}${separator}2 /mnt
 fi
 
+echo "Populating root..."
 sudo tar xJf $roottarxz -C /mnt
-sudo cp data/fstab data/rc.local /mnt/etc
+if [ $userlogin == 1 ]; then
+	sudo rm -f /mnt/etc/rc.local
+else
+	sudo cp -f data/rc.local /mnt/etc
+fi
+if [ $writable == 1 ]; then
+	sudo rm -f /tmp/fstab
+	sed 's/ro 0 0/rw 0 0/' <data/fstab >/tmp/fstab
+	sudo cp -f /tmp/fstab /mnt/etc
+	sudo rm -f /tmp/fstab
+else
+	sudo cp -f data/fstab /mnt/etc
+fi
 sudo cp $key /mnt/root/.ssh/authorized_keys
 
 echo "Randomizing host keys..."
-sudo dropbearkey -t rsa -f /mnt/etc/dropbear/dropbear_rsa_host_key
-sudo dropbearkey -t dss -f /mnt/etc/dropbear/dropbear_dss_host_key
+sudo rm -f /mnt/etc/dropbear/dropbear_rsa_host_key /mnt/etc/dropbear/dropbear_dss_host_key
+sudo dropbearkey -t rsa -f /mnt/etc/dropbear/dropbear_rsa_host_key >/dev/null
+sudo dropbearkey -t dss -f /mnt/etc/dropbear/dropbear_dss_host_key >/dev/null
 
 echo "Configuring network..."
+sudo rm -f /tmp/interfaces
 cp data/interfaces /tmp
 if [ "x$address" == "x" ]; then
 	echo "iface eth0 inet dhcp" >> /tmp/interfaces
@@ -195,15 +225,17 @@ else
 	echo "   broadcast" $(echo $address | sed s/.[0-9]*$/.255/) >> /tmp/interfaces
 	ssh-keygen -f "$HOME/.ssh/known_hosts" -R $address
 fi
-sudo cp /tmp/interfaces /mnt/etc/network
+sudo cp -f /tmp/interfaces /mnt/etc/network
 rm -f /tmp/interfaces
 
-echo "Randomizing root password..."
-pass=$(md5pass $(md5pass))
-echo "    (password hash is $pass)"
-sudo cat /mnt/etc/shadow | sed "s|root::|root:$pass:|" > /tmp/shadow
-sudo cp /tmp/shadow /mnt/etc/shadow
-sudo rm /tmp/shadow
+if [ $secure == 1 ]; then
+	echo "Randomizing root password..."
+	pass=$(md5pass $(md5pass))
+	echo "    (password hash is $pass)"
+	sudo cat /mnt/etc/shadow | sed "s|root::|root:$pass:|" > /tmp/shadow
+	sudo cp /tmp/shadow /mnt/etc/shadow
+	sudo rm /tmp/shadow
+fi
 
 sudo umount /mnt
 if [ "x$image" != "x" ]; then
@@ -213,7 +245,7 @@ fi
 
 
 
-echo "Formatting and populating lightbox..."
+echo "Formatting lightbox..."
 if [ "x$image" != "x" ]; then
 	dd if=/dev/zero of=/tmp/image.part bs=$sectorsize count=$((startvar-startlightbox))
 	mkfs.ext4 -L lightbox -F /tmp/image.part
@@ -222,6 +254,7 @@ else
 	sudo mkfs.ext4 -q -L lightbox ${device}${separator}3
 	sudo mount ${device}${separator}3 /mnt
 fi
+echo "Populating lightbox..."
 sudo cp $fixture /mnt/fixture
 sudo cp $chrome /mnt/Chrome
 sudo umount /mnt
@@ -232,7 +265,7 @@ fi
 
 
 
-echo "Formatting and populating var..."
+echo "Formatting var..."
 if [ "x$image" != "x" ]; then
 	dd if=/dev/zero of=/tmp/image.part bs=$sectorsize count=$((datasectors-startvar))
 	mkfs.ext4 -L var -F /tmp/image.part
@@ -241,6 +274,7 @@ else
 	sudo mkfs.ext4 -q -L var ${device}${separator}4
 	sudo mount ${device}${separator}4 /mnt
 fi
+echo "Populating var..."
 sudo tar xJf $vartarxz -C /mnt
 sudo umount /mnt
 if [ "x$image" != "x" ]; then

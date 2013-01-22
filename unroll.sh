@@ -1,7 +1,7 @@
 #!/bin/bash
 
 part=root
-if [ "x$1" == "x" ]; then
+if [ "x$1" != "x" ]; then
 	part=$1
 fi
 

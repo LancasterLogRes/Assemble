@@ -1,10 +1,10 @@
 #!/bin/bash
 
 part=root
-if [ "x$1" == "x" ]; then
+if [ "x$1" != "x" ]; then
 	part=$1
 fi
 
-mv data/$part/tmp
+mv data/$part.tar.xz /tmp
 sudo tar cC $part . | xz -- > data/$part.tar.xz
 sudo rm -rf $part
