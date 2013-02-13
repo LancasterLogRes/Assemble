@@ -17,8 +17,6 @@ ssh root@192.168.69.2 "\
 	mount -o remount,rw /lightbox; \
 	echo Stopping Chrome...; \
 	mv -f /lightbox/Chrome /lightbox/Chrome.old; \
-	p=\$(ps aux | grep -v grep | grep Chrome | cut -c 10-14); \
-	if [ \"x\$p\" != \"x\" ]; then kill \$p; fi; \
 	echo Uploading Chrome...;"
 
 ssh root@192.168.69.2 "cat > /lightbox/Chrome.new" < ../Lightshow-Release/built/DirectChrome
