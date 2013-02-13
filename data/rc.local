@@ -12,6 +12,9 @@
 # By default this script does nothing.
 
 cd /lightbox
-./Chrome
+
+while [ 1 ]; do
+	./Chrome
+done
 
 exit 0

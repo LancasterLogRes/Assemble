@@ -96,9 +96,7 @@ done
 if [ "x$separator" == "xAUTOMATIC" ]; then
 	if [ "x${device/*mmcblk*/}" == "x" ]; then
 		separator=p
-	elif [ "x${device/*sda*/}" == "x" ]; then
-		separator=""
-	elif	[ "x${device/*hda*/}" == "x" ]; then
+	elif [ "x${device/*\/[sh]d[b-f]*/}" == "x" ]; then
 		separator=""
 	else
 		echo "Unknown device partition separator - please specify with -s option."
@@ -123,7 +121,7 @@ if [ $build == 1 ]; then
 	OWD="$PWD"
 	for p in $projects; do
 		cd "../$p"
-		if [ ! make -j4 2>/tmp/make-out ]; then
+		if ! make -j4 2>/tmp/make-out; then
 			cat /tmp/make-out
 			echo "Error building. Stop."
 			exit 1
@@ -145,7 +143,7 @@ else
 	datasectors=$((sectors))
 
 	echo "Unmounting..."
-	for i in 1 2 3 4; do
+	for i in 1 2 3 4 ""; do
 		sudo umount $device$separator$i 2>/dev/null
 	done
 fi
