@@ -14,7 +14,11 @@
 cd /lightbox
 
 while [ 1 ]; do
-	./Chrome
+        if [ -x ./Chrome ]; then
+                ./Chrome
+        else
+                sleep 1
+        fi
 done
 
 exit 0
