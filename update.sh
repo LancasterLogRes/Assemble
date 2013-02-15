@@ -8,14 +8,17 @@ function usage
 	echo "Usage: ./update.sh [OPTION]"
 	echo "Update the Pi's software. Copyright Lancaster Logic Response 2013, by Gavin Wood."
 	echo "Options:"
-	echo "  -r        Perform rebuild."
+	echo "  -b        Perform make"
+	echo "  -r        Perform full rebuild."
 	echo "  -h        Print this message."
 }
 
-while getopts "rh" opt; do
+while getopts "brh" opt; do
 	case $opt in
-	r)
+	b)
 		build=1;;
+	r)
+		build=2;;
 	p)
 		projects="$OPTARG";;
 	h)
@@ -32,13 +35,15 @@ while getopts "rh" opt; do
 	esac
 done
 
-if [ $build == 1 ]; then
+if [ $build != 0 ]; then
 	echo "Building projects..."
 	OWD="$PWD"
 	for p in $projects; do
 		cd "../$p"
-		make clean 1>/dev/null
-		make qmake 1>/dev/null
+		if [ $build == 2 ]; then
+			make clean 2>/dev/null
+			make qmake 2>/dev/null
+		fi
 		make -j4 1>/tmp/make-out 2>/tmp/make-err
 		if [ $? != 0 ]; then
 			cat /tmp/make-out /tmp/make-err
