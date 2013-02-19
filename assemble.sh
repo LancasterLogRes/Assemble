@@ -4,7 +4,7 @@ rootmb=256
 lightboxmb=64
 device=/dev/mmcblk0
 separator=AUTOMATIC
-fixture=$HOME/.fixture
+scene=$HOME/.scene
 chrome=../Lightshow-Release/built/DirectChrome
 build=1
 projects="Lightbox-Release Lightshow-Release"
@@ -27,7 +27,7 @@ function usage
 	echo "  -i file   Create image in <file>. Overrides and disables -d."
 	echo "  -z size   Make image <size> KB big. Default: 992000"
 	echo "  -s string Partition separator for device. Default: (auto-detect)"
-	echo "  -f file   Specify fixture file. Default: $fixture"
+	echo "  -f file   Specify scene file. Default: $scene"
 	echo "  -c file   Specify Chrome. Default: $chrome"
 	echo "  -B        Don't build projects beforehand."
 	echo "  -p        Project list to build. Default '$projects'"
@@ -56,7 +56,7 @@ while getopts "r:l:d:f:c:a:Ap:Bk:hs:i:z:nowu" opt; do
 	s)
 		separator=$OPTARG;;
 	f)
-		fixture=$OPTARG;;
+		scene=$OPTARG;;
 	c)
 		chrome=$OPTARG;;
 	a)
@@ -251,7 +251,7 @@ else
 	sudo mount ${device}${separator}3 /mnt
 fi
 echo "Populating lightbox..."
-sudo cp $fixture /mnt/fixture
+sudo cp $scene /mnt/scene
 sudo cp $chrome /mnt/Chrome
 sudo umount /mnt
 if [ "x$image" != "x" ]; then
