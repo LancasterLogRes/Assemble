@@ -66,6 +66,7 @@ ssh root@192.168.69.2 "cat > /lightbox/Chrome.new" < ../Lightshow-Release/built/
 ssh root@192.168.69.2 "\
 	echo Fixing system...; \
 	[ -e /lightbox/fixture ] && sed s:fixture:scene:g </lightbox/fixture | sed s:output:driver:g >/lightbox/scene && rm -f /lightbox/fixture; \
+	[ -e /lightbox/scene ] && sed s:driver:fixture:g </lightbox/scene >/lightbox/scene.new && mv /lightbox/scene.new /lightbox/scene; \
 	echo Starting Chrome...; \
 	mv /lightbox/Chrome.new /lightbox/Chrome; \
 	chmod +x /lightbox/Chrome; \
