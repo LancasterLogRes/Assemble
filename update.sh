@@ -73,4 +73,5 @@ ssh root@192.168.69.2 "\
 	mount -o remount,ro /lightbox; \
 	echo Done."
 
+ssh root@192.168.69.2 "/lightbox/Chrome &"
 
