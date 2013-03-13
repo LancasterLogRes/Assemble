@@ -39,24 +39,16 @@ while getopts "brop:h" opt; do
 	esac
 done
 
-if [ $build != 0 ]; then
-	echo "Building projects..."
-	OWD="$PWD"
-	for p in $projects; do
-		cd "../$p"
-		if [ $build == 2 ]; then
-			make clean 2>/dev/null
-			make qmake 2>/dev/null
-		fi
-		make -j4 1>/tmp/make-out 2>/tmp/make-err
-		if [ $? != 0 ]; then
-			cat /tmp/make-out /tmp/make-err
-			echo "Error building. Stop."
-			exit 1
-		fi
-		cd "$OWD"
-	done
-fi
+case $build in
+0)
+	echo "Skipping build.";;
+1)
+	./rebuild.sh -b -p "$projects";;
+2)
+	./rebuild.sh -r -p "$projects";;
+:)
+	echo "Internal error: Unknown build option $build.";;
+esac
 
 if [ $doInstall != 0 ]; then
 	ssh root@192.168.69.2 "\
