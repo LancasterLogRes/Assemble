@@ -15,7 +15,7 @@ function usage
 	echo "  -h        Print this message."
 }
 
-while getopts "brp:h" opt; do
+while getopts "brop:h" opt; do
 	case $opt in
 	b)
 		build=1;;
