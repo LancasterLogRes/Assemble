@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./update.sh -o
+./update.sh -o $*
